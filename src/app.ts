@@ -3,7 +3,9 @@ import {Request, Response} from "express";
 import * as bodyParser from  "body-parser";
 
 
-console.log("Goin' up!");
+const hostname = "localhost";
+const port = 3000;
+
 
 const app = express();
 app.use(bodyParser.json());
@@ -13,4 +15,4 @@ app.get("/", function(req: Request, res: Response) {
     res.send("Hello, world!");
 });
 
-app.listen(3000);
+app.listen(port, hostname, () => console.log(`Listening at ${hostname}:${port}`));
