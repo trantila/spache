@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import { formatAsIsoDate, logInfo } from "./utils";
 
 
 export interface NeoApiCloseApproach {
@@ -28,6 +29,10 @@ export interface NeoApiObject {
     is_sentry_object: boolean;
 }
 
+export interface NeoApiObjectsByDate {
+    [date: string]: NeoApiObject[];
+}
+
 export interface NeoApiFeedResult {
     links: {
         next: string;
@@ -35,9 +40,7 @@ export interface NeoApiFeedResult {
         prev: string;
     };
     element_count: number
-    near_earth_objects: {
-        [date: string]: NeoApiObject[];
-    };
+    near_earth_objects: NeoApiObjectsByDate;
 }
 
 
@@ -49,17 +52,18 @@ function getDateComponent(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function formatAsIsoDate(date: Date): string {
-    return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
-}
-
 function formFeedUrl(baseUrl: string, apiKey: string, from: Date, to: Date): string {
     return `${baseUrl}/feed?start_date=${formatAsIsoDate(from)}&end_date=${formatAsIsoDate(to)}&api_key=${apiKey}`;
 }
 
+
 export class NeoApi {
+    public static readonly origin = "https://api.nasa.gov";
+    public static readonly apiV1Fragment = "/neo/rest/v1"
+    public static readonly feedPath = NeoApi.apiV1Fragment + "/feed";
+    static readonly baseUrl = NeoApi.origin + NeoApi.apiV1Fragment;
+
     apiKey: string;
-    baseUrl = "https://api.nasa.gov/neo/rest/v1";
 
     constructor(apiKey: string) {
         this.apiKey = apiKey
@@ -71,13 +75,22 @@ export class NeoApi {
         const diffMs = to.getTime() - from.getTime();
 
         if (diffMs >= eightDaysMs)
-            throw new Error("NEO API Allows querying of only a week at once.");
+            throw new Error("NEO API Allows querying of only week (eight days, though) at once.");
 
-        const url = formFeedUrl(this.baseUrl, this.apiKey, from, to);
+        const url = formFeedUrl(NeoApi.baseUrl, this.apiKey, from, to);
+
+        logInfo(`Fetching from NEO with ${formatAsIsoDate(from)} - ${formatAsIsoDate(to)}`);
+
         const response = await fetch(url);
 
-        if (!response.ok)
-            throw new Error(`NEO API responded with ${response.status} ${response.statusText}: ${response.body}`);
+        if (!response.ok) {
+            try {
+                const text = await response.text();
+                throw new Error(`NEO API responded with ${response.status} ${response.statusText}: ${text}`);
+            } catch (error) {
+                throw new Error(`NEO API responded with ${response.status} ${response.statusText} and no text-parseable body.`);
+            }
+        }
 
         return await response.json();
     }

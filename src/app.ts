@@ -1,13 +1,17 @@
 import * as express from "express";
 import { Request, Response } from "express";
 import { addDays } from "date-fns";
-import { URL } from "url";
 import { NeoApi } from "./neo-api";
+import { logError } from "./utils";
+import { CloseApproachService } from "./close-approach-service";
+import { URL } from "url";
 
 
 const hostname = "localhost";
 const port = 3000;
 const host = `${hostname}:${port}`;
+// TODO HTTPS would rock :)
+const origin = new URL(`http://${host}`);
 const nasaApiKey = process.env["SPACHE_NASA_API_KEY"] || "DEMO_KEY";
 
 
@@ -21,18 +25,6 @@ function getDateParam(query: object, paramName: string): Date | null {
     return raw ? new Date(raw) : null;
 }
 
-function getSpachedUrl(neoUrl: string): string {
-    const url = new URL(neoUrl);
-    // TODO HTTPS would rock :)
-    url.protocol = "http";
-    url.host = host;
-    url.searchParams.delete("api_key");
-    // TODO Expose detailed?
-    url.searchParams.delete("detailed");
-    url.search = url.searchParams.toString();
-    return url.toString();
-}
-
 
 const app = express();
 
@@ -41,26 +33,24 @@ app.get("/", function(req: Request, res: Response) {
 });
 
 app.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
-    const from = getDateParam(req.query, "start_date");
+    const from_ = getDateParam(req.query, "start_date");
 
-    if (!from) {
+    if (!from_) {
         res.status(400).send("Required parameter `start_date` not provided.");
     }
 
+    const from = from_ as Date;
     const to = getDateParam(req.query, "end_date") || addDays(from, 7);
 
     const neoApi = new NeoApi(nasaApiKey);
+    const closeApproachService = new CloseApproachService(origin, neoApi);
 
     try {
-        const feedResult = await neoApi.queryFeed(from, to);
-        // Set the navigation links to point back "here" instead of the NEO API
-        // All the other links will still point to NEO API
-        const links = feedResult.links;
-        for (const key in links)
-            links[key] = getSpachedUrl(links[key]);
+        const feedResult = await closeApproachService.queryByDateRange(from, to);
         res.send(feedResult);
     } catch (err) {
         const errString = err.toString();
+        logError(errString);
         console.error(`[${new Date().toISOString()}] ${errString}`);
         res.status(500).send(errString);
     }
