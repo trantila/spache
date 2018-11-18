@@ -1,8 +1,9 @@
 import { URL } from "url";import * as express from "express";
 import { Request, Response } from "express";
+import * as morgan from "morgan";
 import { addDays } from "date-fns";
 import { NeoApi } from "./neo-api";
-import { logError } from "./utils";
+import { logError, logInfo } from "./utils";
 import { CloseApproachService } from "./close-approach-service";
 import { getDatabaseConnection } from "./database";
 
@@ -27,6 +28,8 @@ function getDateParam(query: object, paramName: string): Date | null {
 
 
 const app = express();
+
+app.use(morgan("[:date[iso]] :method :url :status :response-time ms - :res[content-length]"));
 
 app.get("/", async (_req: Request, res: Response) => {
     const connection = await getDatabaseConnection();
@@ -59,8 +62,8 @@ app.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
 });
 
 app.listen(port, hostname, async () => {
-    console.log(`Listening at ${host}`);
-    console.log(`Using NASA API KEY "${nasaApiKey}"`);
+    logInfo(`Listening at ${host}`);
+    logInfo(`Using NASA API KEY "${nasaApiKey}"`);
     const connection = await getDatabaseConnection();
-    console.log(`Connected to ${connection.driver.database}`);
+    logInfo(`Connected to ${connection.driver.database}`);
 });

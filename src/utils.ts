@@ -21,22 +21,22 @@ export function getDateForFullDaysSinceEpoch(days: number): Date {
 
 // Logging
 
-function log(fn: (message: string, ...params) => void, message: string, ...params) {
-    fn(`[${new Date().toISOString()}] ${message}`, params);
+function log(fn: (message: string) => void, message: string) {
+    fn(`[${new Date().toISOString()}] ${message}`);
 }
 
-export function logError(message: string, ...params) {
-    log(console.error, message, params);
+export function logError(message: string) {
+    log(console.error, message);
 }
 
-// export function logWarning(message: string, ...params) {
-//     log(console.warn, message, params);
+// export function logWarning(message: string) {
+//     log(console.warn, message);
 // }
 
-export function logInfo(message: string, ...params) {
-    log(console.info, message, params);
+export function logInfo(message: string) {
+    log(console.info, message);
 }
 
-// export function logDebug(message: string, ...params) {
-//     log(console.debug, message, params);
+// export function logDebug(message: string) {
+//     log(console.debug, message);
 // }
