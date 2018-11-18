@@ -27,16 +27,16 @@ function getDateParam(query: object, paramName: string): Date | null {
 }
 
 
-const app = express();
+const server = express();
 
-app.use(morgan("[:date[iso]] :method :url :status :response-time ms - :res[content-length]"));
+server.use(morgan("[:date[iso]] :method :url :status :response-time ms - :res[content-length]"));
 
-app.get("/", async (_req: Request, res: Response) => {
+server.get("/", async (_req: Request, res: Response) => {
     const connection = await getDatabaseConnection();
     res.send(`Space Cache | Connected to: ${connection.driver.database}: ${connection.isConnected}`);
 });
 
-app.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
+server.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
     const from_ = getDateParam(req.query, "start_date");
 
     if (!from_) {
@@ -61,7 +61,7 @@ app.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
     }
 });
 
-app.listen(port, hostname, async () => {
+server.listen(port, hostname, async () => {
     logInfo(`Listening at ${host}`);
     logInfo(`Using NASA API KEY "${nasaApiKey}"`);
     const connection = await getDatabaseConnection();

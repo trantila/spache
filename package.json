@@ -24,7 +24,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "start": "nodemon --watch dist dist/app.js",
+    "start": "nodemon --watch dist dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "trantila",
