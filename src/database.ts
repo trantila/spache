@@ -1,5 +1,4 @@
-import { Connection, Between, createConnection } from "typeorm";
-import { CloseApproachDate } from "./entity/close-approach-date";
+import { Connection, createConnection } from "typeorm";
 
 
 let connection: Promise<Connection> | null = null;

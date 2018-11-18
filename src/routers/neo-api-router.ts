@@ -6,6 +6,7 @@ import { logError } from "../utils";
 import { CloseApproachService } from "../close-approach-service";
 import { addDays } from "date-fns";
 import { URL } from "url";
+import { NeosByDayRepository } from "../neos-by-day-repository";
 
 
 function getRawParam(query: object, paramName: string): string | null {
@@ -35,7 +36,8 @@ export function neoApiRouter(origin: URL, nasaApiKey: string) {
         try {
             const neoApi = new NeoApi(nasaApiKey);
             const dbConnection = await getDatabaseConnection();
-            const closeApproachService = new CloseApproachService(origin, neoApi, dbConnection);
+            const repository = new NeosByDayRepository(dbConnection);
+            const closeApproachService = new CloseApproachService(origin, neoApi, repository);
     
             const feedResult = await closeApproachService.queryByDateRange(from, to);
             res.send(feedResult);
