@@ -1,0 +1,7 @@
+{
+   "type": "sqlite",
+   "database": "spache.db",
+   "synchronize": true,
+   "entities": [ "dist/entity/*.js"],
+   "logging": true
+}

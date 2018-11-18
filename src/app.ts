@@ -1,10 +1,10 @@
-import * as express from "express";
+import { URL } from "url";import * as express from "express";
 import { Request, Response } from "express";
 import { addDays } from "date-fns";
 import { NeoApi } from "./neo-api";
 import { logError } from "./utils";
 import { CloseApproachService } from "./close-approach-service";
-import { URL } from "url";
+import { getDatabaseConnection } from "./database";
 
 
 const hostname = "localhost";
@@ -28,8 +28,9 @@ function getDateParam(query: object, paramName: string): Date | null {
 
 const app = express();
 
-app.get("/", function(req: Request, res: Response) {
-    res.send("Hello, world!");
+app.get("/", async (_req: Request, res: Response) => {
+    const connection = await getDatabaseConnection();
+    res.send(`Space Cache | Connected to: ${connection.driver.database}: ${connection.isConnected}`);
 });
 
 app.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
@@ -42,10 +43,11 @@ app.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
     const from = from_ as Date;
     const to = getDateParam(req.query, "end_date") || addDays(from, 7);
 
-    const neoApi = new NeoApi(nasaApiKey);
-    const closeApproachService = new CloseApproachService(origin, neoApi);
-
     try {
+        const neoApi = new NeoApi(nasaApiKey);
+        const dbConnection = await getDatabaseConnection();
+        const closeApproachService = new CloseApproachService(origin, neoApi, dbConnection);
+
         const feedResult = await closeApproachService.queryByDateRange(from, to);
         res.send(feedResult);
     } catch (err) {
@@ -56,7 +58,9 @@ app.get("/neo/rest/v1/feed", async (req: Request, res: Response) => {
     }
 });
 
-app.listen(port, hostname, () => {
+app.listen(port, hostname, async () => {
     console.log(`Listening at ${host}`);
     console.log(`Using NASA API KEY "${nasaApiKey}"`);
+    const connection = await getDatabaseConnection();
+    console.log(`Connected to ${connection.driver.database}`);
 });

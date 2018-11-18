@@ -1,25 +1,16 @@
-import { NeoApi, NeoApiObject, NeoApiFeedResult, NeoApiObjectsByDate } from "./neo-api";
 import { URL } from "url";
-import { getFullDaysSinceEpoch, getDateForFullDaysSinceEpoch, formatAsIsoDate } from "./utils";
+import { Between, Connection, In } from "typeorm";
 import { addDays, subDays, differenceInDays } from "date-fns";
+import { NeoApi, NeoApiObject, NeoApiFeedResult, NeoApiObjectsByDate } from "./neo-api";
+import { getFullDaysSinceEpoch, getDateForFullDaysSinceEpoch, formatAsIsoDate, logError } from "./utils";
+import { CloseApproachDate } from "./entity/close-approach-date";
+import { CloseApproach } from "./entity/close-approach";
+
 
 interface NeosByDay {
     [day: number]: NeoApiObject[];
 }
 
-// TODO One cheap key-value store. Key is "days since epoch".
-//      Existence of a key means the day has been fetched.
-const db = {} as NeosByDay;
-
-function updateDatabase(db: NeosByDay, data: NeoApiObjectsByDate) {
-    // Overweite all received days
-    for (const isoDate in data) {
-        // TODO TZs!
-        const date = new Date(isoDate);
-        const day = getFullDaysSinceEpoch(date);
-        db[day] = data[isoDate];
-    }
-}
 
 function getSpachedUrl(origin: URL, neoUrl: string): string {
     const url = new URL(neoUrl);
@@ -62,26 +53,41 @@ function buildNeoApiFeedResult(origin: string, from: Date, to: Date, data: NeosB
     };
 }
 
+function getNeosByDay(data: NeoApiObjectsByDate): NeosByDay {
+    const result: NeosByDay = {};
+    for (const isoDate in data) {
+        // TODO TZs!
+        const date = new Date(isoDate);
+        const day = getFullDaysSinceEpoch(date)
+        result[day] = data[isoDate];
+    }
+    return result;
+}
+
 
 export class CloseApproachService {
     origin: URL;
     neoApi: NeoApi;
+    dbConnection: Connection;
 
-    constructor(origin: URL, neoApi: NeoApi) {
+    constructor(origin: URL, neoApi: NeoApi, dbConnection: Connection) {
         this.origin = origin;
         this.neoApi = neoApi;
+        this.dbConnection = dbConnection;
     }
 
     async queryByDateRange(from: Date, to: Date): Promise<NeoApiFeedResult> {
-        const cachedResults = this.queryCacheByDateRange(from, to);
+        const cachedResults = await this.queryCacheByDateRange(from, to);
 
         if (cachedResults)
             return buildNeoApiFeedResult(this.origin.origin, from, to, cachedResults);
 
         const feedResult = await this.neoApi.queryFeed(from, to);
 
-        // TODO cache processing could be fired to background; client does not care of it.
-        updateDatabase(db, feedResult.near_earth_objects);
+        // Fire-and-forget the caching!
+        const data = getNeosByDay(feedResult.near_earth_objects);
+        this.updateCache(data)
+            .catch((error: Error) => logError(error.message));
 
         // Set the navigation links to point back "here" instead of the NEO API
         // All the other links will still point to NEO API
@@ -97,22 +103,64 @@ export class CloseApproachService {
      * @param from date
      * @param to date, inclusive
      */
-    queryCacheByDateRange(from: Date, to: Date): NeosByDay | null {
+    async queryCacheByDateRange(from: Date, to: Date): Promise<NeosByDay | null> {
         const fromDay = getFullDaysSinceEpoch(from);
         const toDay = getFullDaysSinceEpoch(to);
 
+        const closeApproachDateRepo = this.dbConnection.getRepository(CloseApproachDate);
+        const dates = await closeApproachDateRepo.find({
+            relations: ["closeApproaches"],
+            where: { day: Between(fromDay, toDay) },
+            order: { day: "ASC" },
+        });
+
         // End-inclusive it is, as weird as it feels.
-        let results: NeosByDay = {};
-        for (let day = fromDay; day <= toDay; ++day) {
-            const resultsOfDay = db[day];
+        // TODO Less aggressive cache-bypassing needed!
+        const nexpected = toDay - fromDay + 1;
+        if (dates.length < nexpected)
+            return null;
 
-            // Return null directly if any day is missing!
-            if (!resultsOfDay)
-                return null;
+        return dates.reduce((neosByDay, date) => {
+            return Object.assign(neosByDay, {
+                [date.day]: date.closeApproaches.map(approach => approach.nearEarthObject)
+            });
+        }, {} as NeosByDay);
+    }
 
-            results[day] = resultsOfDay;
+    async updateCache(data: NeosByDay) {
+        const repo = this.dbConnection.getRepository(CloseApproachDate);
+
+        // const days: number[] = [];
+        const closeApproachDates: CloseApproachDate[] = [];
+        for (const day in data) {
+            // days.push(day as unknown as number);
+            const closeApproachDate: CloseApproachDate = {
+                day: day as unknown as number,
+                closeApproaches: [],
+            };
+
+            closeApproachDate.closeApproaches = data[day].map(neo => {
+                // TODO Picking first unconditionally seems like a bad idea!
+                const approachData = neo.close_approach_data[0];
+                // TODO Seems like a silly way to go around not setting the id...
+                return Object.assign(new CloseApproach(), {
+                    date: closeApproachDate,
+                    closestDistanceAu: Number.parseFloat(approachData.miss_distance.astronomical),
+                    orbitingBody: approachData.orbiting_body,
+                    relativeVelocityKmps: Number.parseFloat(approachData.relative_velocity.kilometers_per_second),
+                    nearEarthObject: neo,
+                });
+            });
+            
+            closeApproachDates.push(closeApproachDate);
         }
 
-        return results;
+        // Delete all overlapping data in the crudest possible way before saving the new.
+        // `repo.save` alone won't do presumably because typeorm cannot know that entities
+        // with given ids exist in the db in this "free" case.
+        await repo.delete({
+            day: In(closeApproachDates.map(date => date.day)),
+        });
+        await repo.save(closeApproachDates);
     }
 }
