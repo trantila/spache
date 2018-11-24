@@ -71,17 +71,6 @@ export class CloseApproachAggregationsService {
             const windowedNeosByDay = await Promise.all(windowedNeosByDay_);
             neosByDay = windowedNeosByDay.reduce((neosByDay, window) => Object.assign(neosByDay, window), {});
 
-            let minDay = Number.MAX_SAFE_INTEGER, maxDay = Number.MIN_SAFE_INTEGER;
-            for (const day in neosByDay) {
-                minDay = Math.min(minDay, day as unknown as number);
-                maxDay = Math.max(maxDay, day as unknown as number);
-            }
-
-            const minDate = getDateForFullDaysSinceEpoch(minDay);
-            const maxDate = getDateForFullDaysSinceEpoch(maxDay);
-            console.log(`Range: ${minDay} - ${maxDay}`);
-            console.log(`Or ..: ${minDate.toISOString()} - ${maxDate.toISOString()}`);
-
             // Fire and forget the caching
             this.dbConnection.transaction(entityManager => {
                 var repository = new NeosByDayRepository(entityManager);
