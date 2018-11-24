@@ -2,21 +2,10 @@ import * as express from "express";
 import { Request, Response } from "express";
 import { getDatabaseConnection } from "../database";
 import { NeoApi } from "../neo-api";
-import { logError, addUTCDays } from "../utils";
-import { CloseApproachService } from "../close-approach-service";
+import { logError, getDateParam, addUTCDays } from "../utils";
+import { CloseApproachService } from "../services/close-approach-service";
 import { URL } from "url";
 import { NeosByDayRepository } from "../neos-by-day-repository";
-
-
-function getRawParam(query: object, paramName: string): string | null {
-    const raw: string | undefined = query[paramName];
-    return raw === undefined ? null : raw;
-}
-
-function getDateParam(query: object, paramName: string): Date | null {
-    const raw = getRawParam(query, paramName);
-    return raw ? new Date(raw) : null;
-}
 
 
 export function neoApiRouter(origin: URL, nasaApiKey: string) {
@@ -35,15 +24,13 @@ export function neoApiRouter(origin: URL, nasaApiKey: string) {
         try {
             const neoApi = new NeoApi(nasaApiKey);
             const dbConnection = await getDatabaseConnection();
-            const repository = new NeosByDayRepository(dbConnection);
-            const closeApproachService = new CloseApproachService(origin, neoApi, repository);
+            const closeApproachService = new CloseApproachService(origin, neoApi, dbConnection);
     
             const feedResult = await closeApproachService.queryByDateRange(from, to);
             res.send(feedResult);
         } catch (err) {
             const errString = err.toString();
             logError(errString);
-            console.error(`[${new Date().toISOString()}] ${errString}`);
             res.status(500).send(errString);
         }
     });

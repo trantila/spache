@@ -1,19 +1,19 @@
-import { Connection, Between, In } from "typeorm";
+import { Between, In, EntityManager } from "typeorm";
 import { NeoApiObject } from "./neo-api";
 import { getFullDaysSinceEpoch } from "./utils";
 import { CloseApproachDate } from "./entity/close-approach-date";
 import { CloseApproach } from "./entity/close-approach";
 
 
-interface NeosByDay {
+export interface NeosByDay {
     [day: number]: NeoApiObject[];
 }
 
 export class NeosByDayRepository {
-    connection: Connection;
+    entityManager: EntityManager;
 
-    constructor(connection: Connection) {
-        this.connection = connection;
+    constructor(entityManager: EntityManager) {
+        this.entityManager = entityManager;
     }
 
     /**
@@ -26,7 +26,7 @@ export class NeosByDayRepository {
         const fromDay = getFullDaysSinceEpoch(from);
         const toDay = getFullDaysSinceEpoch(to);
 
-        const closeApproachDateRepo = this.connection.getRepository(CloseApproachDate);
+        const closeApproachDateRepo = this.entityManager.getRepository(CloseApproachDate);
         const dates = await closeApproachDateRepo.find({
             relations: ["closeApproaches"],
             where: { day: Between(fromDay, toDay) },
@@ -51,12 +51,8 @@ export class NeosByDayRepository {
      * @param data of days to update
      */
     async update(data: NeosByDay): Promise<void> {
-        const repo = this.connection.getRepository(CloseApproachDate);
-
-        // const days: number[] = [];
         const closeApproachDates: CloseApproachDate[] = [];
         for (const day in data) {
-            // days.push(day as unknown as number);
             const closeApproachDate: CloseApproachDate = {
                 day: day as unknown as number,
                 closeApproaches: [],
@@ -78,12 +74,12 @@ export class NeosByDayRepository {
             closeApproachDates.push(closeApproachDate);
         }
 
+        const days = closeApproachDates.map(date => date.day);
+
         // Delete all overlapping data in the crudest possible way before saving the new.
         // `repo.save` alone won't do presumably because typeorm cannot know that entities
         // with given ids exist in the db in this "free" case.
-        await repo.delete({
-            day: In(closeApproachDates.map(date => date.day)),
-        });
-        await repo.save(closeApproachDates);
+        await this.entityManager.delete(CloseApproachDate, { day: In(days) });
+        await this.entityManager.save(CloseApproachDate, closeApproachDates);
     }
 }

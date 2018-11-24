@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
-import { formatAsIsoDate, logInfo } from "./utils";
+import { formatAsIsoDate, logInfo, getFullDaysSinceEpoch } from "./utils";
+import { NeosByDay } from "./neos-by-day-repository";
 
 
 export interface NeoApiCloseApproach {
@@ -54,6 +55,19 @@ function getDateComponent(date: Date): Date {
 
 function formFeedUrl(baseUrl: string, apiKey: string, from: Date, to: Date): string {
     return `${baseUrl}/feed?start_date=${formatAsIsoDate(from)}&end_date=${formatAsIsoDate(to)}&api_key=${apiKey}`;
+}
+
+
+// TODO Maybe this API should also be given "repository" treatment should expose
+//      only NeosByDay outwards instead of the feed results..?
+export function getNeosByDay(data: NeoApiObjectsByDate): NeosByDay {
+    const result: NeosByDay = {};
+    for (const isoDate in data) {
+        const date = new Date(isoDate);
+        const day = getFullDaysSinceEpoch(date)
+        result[day] = data[isoDate];
+    }
+    return result;
 }
 
 

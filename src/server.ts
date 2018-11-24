@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 import * as morgan from "morgan";
 import { NeoApi } from "./neo-api";
 import { logError, logInfo } from "./utils";
-import { CloseApproachService } from "./close-approach-service";
+import { CloseApproachService } from "./services/close-approach-service";
 import { getDatabaseConnection } from "./database";
 import { neoApiRouter } from "./routers/neo-api-router";
 

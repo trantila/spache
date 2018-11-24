@@ -1,8 +1,8 @@
 import { URL } from "url";
-import { addDays, subDays, differenceInDays } from "date-fns";
-import { NeoApi, NeoApiObject, NeoApiFeedResult, NeoApiObjectsByDate } from "./neo-api";
-import { getFullDaysSinceEpoch, getDateForFullDaysSinceEpoch, formatAsIsoDate, logError } from "./utils";
-import { NeosByDayRepository } from "./neos-by-day-repository";
+import { NeoApi, NeoApiObject, NeoApiFeedResult, NeoApiObjectsByDate, getNeosByDay } from "../neo-api";
+import { getDateForFullDaysSinceEpoch, formatAsIsoDate, logError, addUTCDays, subUTCDays, differenceInUTCDays } from "../utils";
+import { NeosByDayRepository } from "../neos-by-day-repository";
+import { Connection, EntityManager } from "typeorm";
 
 
 interface NeosByDay {
@@ -26,7 +26,7 @@ function buildSpacheFeedUrl(origin: string, from: Date, to: Date): string {
 }
 
 function buildNeoApiFeedResult(origin: string, from: Date, to: Date, data: NeosByDay): NeoApiFeedResult {
-    const ndays = differenceInDays(to, from);
+    const ndays = differenceInUTCDays(to, from);
 
     let nobjects = 0;
     const dataResult: NeoApiObjectsByDate = {};
@@ -42,40 +42,30 @@ function buildNeoApiFeedResult(origin: string, from: Date, to: Date, data: NeosB
 
     return {
         links: {
-            next: buildSpacheFeedUrl(origin, addDays(from, ndays), addDays(to, ndays)),
+            next: buildSpacheFeedUrl(origin, addUTCDays(from, ndays), addUTCDays(to, ndays)),
             self: buildSpacheFeedUrl(origin, from, to),
-            prev: buildSpacheFeedUrl(origin, subDays(from, ndays), subDays(to, ndays)),
+            prev: buildSpacheFeedUrl(origin, subUTCDays(from, ndays), subUTCDays(to, ndays)),
         },
         element_count: nobjects,
         near_earth_objects: dataResult,
     };
 }
 
-function getNeosByDay(data: NeoApiObjectsByDate): NeosByDay {
-    const result: NeosByDay = {};
-    for (const isoDate in data) {
-        // TODO TZs!
-        const date = new Date(isoDate);
-        const day = getFullDaysSinceEpoch(date)
-        result[day] = data[isoDate];
-    }
-    return result;
-}
-
 
 export class CloseApproachService {
     origin: URL;
     neoApi: NeoApi;
-    repository: NeosByDayRepository;
+    dbConnection: Connection;
 
-    constructor(origin: URL, neoApi: NeoApi, repository: NeosByDayRepository) {
+    constructor(origin: URL, neoApi: NeoApi, dbConnection: Connection) {
         this.origin = origin;
         this.neoApi = neoApi;
-        this.repository = repository;
+        this.dbConnection = dbConnection;
     }
 
     async queryByDateRange(from: Date, to: Date): Promise<NeoApiFeedResult> {
-        const cachedResults = await this.repository.queryByDateRange(from, to);
+        const repository = new NeosByDayRepository(this.dbConnection.createEntityManager());
+        const cachedResults = await repository.queryByDateRange(from, to);
 
         if (cachedResults)
             return buildNeoApiFeedResult(this.origin.origin, from, to, cachedResults);
@@ -83,9 +73,12 @@ export class CloseApproachService {
         const feedResult = await this.neoApi.queryFeed(from, to);
 
         // Fire-and-forget the caching!
-        const data = getNeosByDay(feedResult.near_earth_objects);
-        this.repository.update(data)
-            .catch((error: Error) => logError(error.message));
+        this.dbConnection.transaction(entityManager => {
+            const repository = new NeosByDayRepository(entityManager);
+            const data = getNeosByDay(feedResult.near_earth_objects);
+            return repository.update(data);
+        })
+        .catch((error: Error) => logError(error.message));
 
         // Set the navigation links to point back "here" instead of the NEO API
         // All the other links will still point to NEO API
