@@ -7,6 +7,7 @@ import { logError, logInfo } from "./utils";
 import { CloseApproachService } from "./services/close-approach-service";
 import { getDatabaseConnection } from "./database";
 import { neoApiRouter } from "./routers/neo-api-router";
+import { aggregationsRouter } from "./routers/aggregations-router";
 
 
 const hostname = "localhost";
@@ -27,6 +28,7 @@ server.get("/", async (_req: Request, res: Response) => {
 });
 
 server.use("/neo/rest/v1", neoApiRouter(origin, nasaApiKey));
+server.use("/aggregations", aggregationsRouter(nasaApiKey));
 
 server.listen(port, hostname, async () => {
     logInfo(`Listening at ${host}`);
