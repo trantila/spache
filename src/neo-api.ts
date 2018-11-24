@@ -46,10 +46,10 @@ export interface NeoApiFeedResult {
 
 const eightDaysMs = 8 * 24 * 60 * 60 * 1000;
 
-// TODO JS and timezones..?
-
 function getDateComponent(date: Date): Date {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    // const isoDate = formatAsIsoDate(date);
+    // return new Date(isoDate);
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 function formFeedUrl(baseUrl: string, apiKey: string, from: Date, to: Date): string {

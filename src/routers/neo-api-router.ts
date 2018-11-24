@@ -2,9 +2,8 @@ import * as express from "express";
 import { Request, Response } from "express";
 import { getDatabaseConnection } from "../database";
 import { NeoApi } from "../neo-api";
-import { logError } from "../utils";
+import { logError, addUTCDays } from "../utils";
 import { CloseApproachService } from "../close-approach-service";
-import { addDays } from "date-fns";
 import { URL } from "url";
 import { NeosByDayRepository } from "../neos-by-day-repository";
 
@@ -31,7 +30,7 @@ export function neoApiRouter(origin: URL, nasaApiKey: string) {
         }
     
         const from = from_ as Date;
-        const to = getDateParam(req.query, "end_date") || addDays(from, 7);
+        const to = getDateParam(req.query, "end_date") || addUTCDays(from, 7);
     
         try {
             const neoApi = new NeoApi(nasaApiKey);

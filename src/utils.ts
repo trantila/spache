@@ -1,16 +1,35 @@
-import { format } from "date-fns";
 
 
 // Dates
 
+const dayms = 1000.0 * 60 * 60 * 24;
+
 export function formatAsIsoDate(date: Date): string {
-    return format(date, "yyyy-MM-dd");
+    // date-fns format is a no go since it deals in local time...
+    const year = date.getUTCFullYear().toString().padStart(4, '0');
+    const month = (date.getUTCMonth()+1).toString().padStart(2, '0');
+    const day = date.getUTCDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+export function addUTCDays(date: Date, amount: number): Date {
+    const newDate = new Date(date);
+    newDate.setUTCDate(date.getUTCDate() + amount);
+    return newDate;
+}
+
+export function subUTCDays(date: Date, amount: number): Date {
+    return addUTCDays(date, -amount);
+}
+
+export function differenceInUTCDays(left: Date, right: Date): number {
+    const dms = left.getTime() - right.getTime();
+    return Math.floor(dms / dayms);
 }
 
 export function getFullDaysSinceEpoch(date: Date): number {
     const ms = date.getTime();
-    const days = ms / (1000.0 * 60 * 60 * 24);
-    return Math.floor(days);
+    return Math.floor(ms / dayms);
 }
 
 export function getDateForFullDaysSinceEpoch(days: number): Date {
