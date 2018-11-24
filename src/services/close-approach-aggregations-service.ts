@@ -1,29 +1,21 @@
 import { NeoApi, getNeosByDay, NeoApiObject } from "../neo-api";
 import { NeosByDayRepository, NeosByDay } from "../neos-by-day-repository";
-import { compareAsc, min, format, getDate } from "date-fns";
-import { logError, getDateForFullDaysSinceEpoch, logInfo, addUTCDays, formatAsIsoDate } from "../utils";
+import { compareAsc, min, format } from "date-fns";
+import { logError, getDateForFullDaysSinceEpoch, logInfo, addUTCDays, formatAsIsoDate, DateWindow } from "../utils";
 import { Connection } from "typeorm";
 
-
-interface FetchWindow {
-    start: Date;
-    end: Date;
-}
 
 export interface NeoByIsoMonth {
     [month: string]: NeoApiObject;
 }
 
-function getFetchWindows(from: Date, to: Date): FetchWindow[] {
-    const windows: FetchWindow[] = [];
+function getFetchWindows(from: Date, to: Date): DateWindow[] {
+    const windows: DateWindow[] = [];
     for (let date = from; compareAsc(to, date) >= 0; date = addUTCDays(date, 7)) {
         windows.push({
             start: date,
-            // NASA API is, for the most part, end-inclusive with this param. For some days,
-            // presumably related to some shady daylight savings issues, it is not, though.
-            // In those cases the API becomes "end-exclusive" and thus it's easier to
-            // treat it as such always.
-            end: min([addUTCDays(date, 7), to]),
+            // NASA API is end-inclusive
+            end: min([addUTCDays(date, 6), to]),
         });
     }
     return windows;
@@ -74,7 +66,7 @@ export class CloseApproachAggregationsService {
             const fetchWindows = getFetchWindows(from, to);
             const windowedNeosByDay_ = fetchWindows.map(window =>
                 this.neoApi.queryFeed(window.start, window.end)
-                .then(feedResult => getNeosByDay(feedResult.near_earth_objects)));
+                .then(feedResult => getNeosByDay(window, feedResult.near_earth_objects)));
 
             const windowedNeosByDay = await Promise.all(windowedNeosByDay_);
             neosByDay = windowedNeosByDay.reduce((neosByDay, window) => Object.assign(neosByDay, window), {});

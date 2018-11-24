@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
-import { formatAsIsoDate, logInfo, getFullDaysSinceEpoch } from "./utils";
+import { formatAsIsoDate, logInfo, getFullDaysSinceEpoch, DateWindow, addUTCDays } from "./utils";
 import { NeosByDay } from "./neos-by-day-repository";
+import { compareAsc } from "date-fns";
 
 
 export interface NeoApiCloseApproach {
@@ -58,15 +59,30 @@ function formFeedUrl(baseUrl: string, apiKey: string, from: Date, to: Date): str
 }
 
 
-// TODO Maybe this API should also be given "repository" treatment should expose
-//      only NeosByDay outwards instead of the feed results..?
-export function getNeosByDay(data: NeoApiObjectsByDate): NeosByDay {
+/**
+ * Get a friendlier representation of the fetched NEO API data. Window spec is
+ * utilized to enforce the data to have an entry for each date even if NEO API
+ * data is missing it.
+ *
+ * TODO Maybe this API should also be given "repository" treatment should expose
+ * only NeosByDay outwards instead of the feed results..?
+ *
+ * @param window expected range
+ * @param data NEO API datewise payload
+ */
+export function getNeosByDay(window: DateWindow, data: NeoApiObjectsByDate): NeosByDay {
     const result: NeosByDay = {};
-    for (const isoDate in data) {
-        const date = new Date(isoDate);
-        const day = getFullDaysSinceEpoch(date)
-        result[day] = data[isoDate];
+    for (let date = window.start; compareAsc(window.end, date) >= 0; date = addUTCDays(date, 1)) {
+        const day = getFullDaysSinceEpoch(date);
+        const isoDate = formatAsIsoDate(date);
+        result[day] = data[isoDate] || [];
     }
+    // This would be so very nice but the NEO API can behave badly sometimes.. :(
+    // for (const isoDate in data) {
+    //     const date = new Date(isoDate);
+    //     const day = getFullDaysSinceEpoch(date)
+    //     result[day] = data[isoDate];
+    // }
     return result;
 }
 

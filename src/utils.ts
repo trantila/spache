@@ -21,6 +21,11 @@ export function getDateParam(query: object, paramName: string): Date | null {
 
 // Dates
 
+export interface DateWindow {
+    start: Date;
+    end: Date;
+}
+
 const dayms = 1000.0 * 60 * 60 * 24;
 
 export function formatAsIsoDate(date: Date): string {

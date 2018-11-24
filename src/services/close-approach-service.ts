@@ -75,7 +75,7 @@ export class CloseApproachService {
         // Fire-and-forget the caching!
         this.dbConnection.transaction(entityManager => {
             const repository = new NeosByDayRepository(entityManager);
-            const data = getNeosByDay(feedResult.near_earth_objects);
+            const data = getNeosByDay({ start: from, end: to }, feedResult.near_earth_objects);
             return repository.update(data);
         })
         .catch((error: Error) => logError(error.message));
