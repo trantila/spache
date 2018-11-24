@@ -5,7 +5,6 @@ import { getDateParam, logError } from "../utils";
 import { NeoApi } from "../neo-api";
 import { getDatabaseConnection } from "../database";
 import { CloseApproachAggregationsService } from "../services/close-approach-aggregations-service";
-import { NeosByDayRepository } from "../neos-by-day-repository";
 
 
 export function aggregationsRouter(nasaApiKey: string) {

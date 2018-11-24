@@ -2,7 +2,7 @@ import { URL } from "url";
 import { NeoApi, NeoApiObject, NeoApiFeedResult, NeoApiObjectsByDate, getNeosByDay } from "../neo-api";
 import { getDateForFullDaysSinceEpoch, formatAsIsoDate, logError, addUTCDays, subUTCDays, differenceInUTCDays } from "../utils";
 import { NeosByDayRepository } from "../neos-by-day-repository";
-import { Connection, EntityManager } from "typeorm";
+import { Connection } from "typeorm";
 
 
 interface NeosByDay {
