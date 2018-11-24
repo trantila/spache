@@ -39,11 +39,9 @@ export class NeosByDayRepository {
         if (dates.length < nexpected)
             return null;
 
-        return dates.reduce((neosByDay, date) => {
-            return Object.assign(neosByDay, {
-                [date.day]: date.closeApproaches.map(approach => approach.nearEarthObject)
-            });
-        }, {} as NeosByDay);
+        return dates.reduce((neosByDay, date) => Object.assign(neosByDay, {
+            [date.day]: date.closeApproaches.map(approach => approach.nearEarthObject)
+        }), {});
     }
 
     /**
