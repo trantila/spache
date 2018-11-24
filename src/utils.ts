@@ -1,4 +1,23 @@
 
+// Query params
+
+function getRawParam(query: object, paramName: string): string | null {
+    const raw: string | undefined = query[paramName];
+    return raw === undefined ? null : raw;
+}
+
+/**
+ * Get a `Date` param by name.
+ *
+ * TODO TZ handling likely very broken!
+ * @param query query params hash
+ * @param paramName key of param to extract
+ */
+export function getDateParam(query: object, paramName: string): Date | null {
+    const raw = getRawParam(query, paramName);
+    return raw ? new Date(raw) : null;
+}
+
 
 // Dates
 
